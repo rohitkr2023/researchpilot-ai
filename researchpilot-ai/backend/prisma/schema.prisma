@@ -1,0 +1,219 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+enum Role {
+  STUDENT
+  RESEARCHER
+  PROFESSOR
+  ADMIN
+}
+
+enum DocumentStatus {
+  UPLOADING
+  UPLOADED
+  PROCESSING
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+enum GapConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum VerificationStatus {
+  SUPPORTED
+  PARTIALLY_SUPPORTED
+  CONTRADICTED
+  NOT_FOUND
+}
+
+model User {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  passwordHash String
+  name         String?
+  institution  String?
+  role         Role              @default(STUDENT)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  projects     ResearchProject[]
+  notes        ResearchNote[]
+
+  @@map("users")
+}
+
+model ResearchProject {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  domainTopic String?
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents   Document[]
+  gaps        ResearchGap[]
+  ideas       ResearchIdea[]
+  notes       ResearchNote[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId])
+  @@map("research_projects")
+}
+
+model Document {
+  id            String          @id @default(uuid())
+  projectId     String
+  project       ResearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  originalName  String
+  fileSize      Int
+  fileUrl       String?
+  status        DocumentStatus  @default(UPLOADING)
+  pageCount     Int             @default(0)
+  authors       String[]        @default([])
+  publishedYear Int?
+  abstract      String?
+  doi           String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  pages        DocumentPage[]
+  chunks       DocumentChunk[]
+  analysis     PaperAnalysis?
+  citations    Citation[]
+  chatMessages ChatMessage[]
+
+  @@index([projectId])
+  @@map("documents")
+}
+
+model DocumentPage {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  pageNumber Int
+  rawText    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, pageNumber])
+  @@map("document_pages")
+}
+
+model DocumentChunk {
+  id         String                      @id @default(uuid())
+  documentId String
+  document   Document                    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  pageNumber Int
+  chunkIndex Int
+  content    String                      @db.Text
+  embedding  Unsupported("vector(384)")?
+  metadata   Json?
+  createdAt  DateTime                    @default(now())
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+model PaperAnalysis {
+  id                 String   @id @default(uuid())
+  documentId         String   @unique
+  document           Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  coreProblem        String?  @db.Text
+  methodology        String?  @db.Text
+  datasetUsed        String?  @db.Text
+  experimentalSetup  String?  @db.Text
+  keyContributions   String[] @default([])
+  limitations        String[] @default([])
+  futureWork         String[] @default([])
+  evidenceReferences Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("paper_analyses")
+}
+
+model ResearchGap {
+  id              String          @id @default(uuid())
+  projectId       String
+  project         ResearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  gapStatement    String          @db.Text
+  supportingNodes Json?
+  category        String?
+  confidence      GapConfidence   @default(HIGH)
+  createdAt       DateTime        @default(now())
+
+  @@index([projectId])
+  @@map("research_gaps")
+}
+
+model ResearchIdea {
+  id                String          @id @default(uuid())
+  projectId         String
+  project           ResearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title             String
+  problemStatement  String          @db.Text
+  proposedApproach  String          @db.Text
+  requiredDataset   String?
+  evaluationPlan    String?
+  feasibilityRating String?
+  createdAt         DateTime        @default(now())
+
+  @@index([projectId])
+  @@map("research_ideas")
+}
+
+model ResearchNote {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     ResearchProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title       String
+  content     String           @db.Text
+  pageSource  Int?
+  citationRef String?
+  tags        String[]         @default([])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("research_notes")
+}
+
+model Citation {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  bibtex     String?  @db.Text
+  apa        String?  @db.Text
+  ieee       String?  @db.Text
+  mla        String?  @db.Text
+  chicago    String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@map("citations")
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  role       String
+  content    String   @db.Text
+  citations  Json?
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+  @@map("chat_messages")
+}
