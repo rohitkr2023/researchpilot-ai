@@ -244,7 +244,7 @@ export default function ScholarCompleteSuite() {
     formData.append("pdf", selectedFile);
 
     try {
-      const res = await fetch("http://localhost:5001/api/scholar/analyze-paper", {
+      const res = await fetch("https://researchpilot-ai-sk8o.onrender.com/api/scholar/analyze-paper", {
         method: "POST",
         body: formData,
       });
@@ -304,7 +304,7 @@ export default function ScholarCompleteSuite() {
     setAskingAi(true);
 
     try {
-      const res = await fetch("http://localhost:5001/api/scholar/ask-ai", {
+      const res = await fetch("https://researchpilot-ai-sk8o.onrender.com/api/scholar/ask-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q })
@@ -1402,6 +1402,7 @@ export default function ScholarCompleteSuite() {
     </div>
   );
 }
+
 
 
 
